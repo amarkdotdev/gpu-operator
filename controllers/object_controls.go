@@ -5162,6 +5162,11 @@ func RuntimeClasses(n ClusterPolicyController) (gpuv1.State, error) {
 	status := gpuv1.Ready
 	state := n.idx
 
+	if n.stateNames[state] == "state-kata-manager" {
+		// Kata Manager is deprecated, no need to process anything
+		return gpuv1.Ready, nil
+	}
+
 	nvidiaRuntimeClasses := n.resources[state].RuntimeClasses
 	if n.stateNames[state] == "pre-requisites" && !n.isStateEnabled(n.stateNames[state]) {
 		err := clearRuntimeClasses(n, nvidiaRuntimeClasses)
