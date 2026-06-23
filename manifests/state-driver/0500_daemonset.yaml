@@ -326,7 +326,7 @@ spec:
           - name: firmware-search-path
             mountPath: /sys/module/firmware_class/parameters/path
           - name: sysfs-memory-online
-            mountPath: /sys/devices/system/memory/auto_online_blocks
+            mountPath: /sys/devices/system
           - name: nv-firmware
             mountPath: /lib/firmware
           - name: driver-startup-probe-script
@@ -689,7 +689,8 @@ spec:
             path: /sys/module/firmware_class/parameters/path
         - name: sysfs-memory-online
           hostPath:
-            path: /sys/devices/system/memory/auto_online_blocks
+            path: /sys/devices/system
+            type: Directory
         - name: nv-firmware
           hostPath:
             path: /run/nvidia/driver/lib/firmware

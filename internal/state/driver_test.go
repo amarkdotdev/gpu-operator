@@ -142,6 +142,56 @@ func TestDriverRenderMinimal(t *testing.T) {
 	require.Equal(t, string(o), actual)
 }
 
+func TestDriverSysfsMemoryOnlineVolumeUsesStableParentDirectory(t *testing.T) {
+	state, err := NewStateDriver(nil, "", nil, manifestDir)
+	require.Nil(t, err)
+	stateDriver, ok := state.(*stateDriver)
+	require.True(t, ok)
+
+	objs, err := stateDriver.renderer.RenderObjects(
+		&render.TemplatingData{
+			Data: getMinimalDriverRenderData(),
+		})
+	require.Nil(t, err)
+	require.NotEmpty(t, objs)
+
+	ds, err := getDaemonsetFromObjects(objs)
+	require.Nil(t, err)
+
+	var sysfsMemoryOnlineVolume *corev1.Volume
+	for i := range ds.Spec.Template.Spec.Volumes {
+		if ds.Spec.Template.Spec.Volumes[i].Name == "sysfs-memory-online" {
+			sysfsMemoryOnlineVolume = &ds.Spec.Template.Spec.Volumes[i]
+			break
+		}
+	}
+	require.NotNil(t, sysfsMemoryOnlineVolume)
+	require.NotNil(t, sysfsMemoryOnlineVolume.HostPath)
+	require.NotNil(t, sysfsMemoryOnlineVolume.HostPath.Type)
+	assert.Equal(t, "/sys/devices/system", sysfsMemoryOnlineVolume.HostPath.Path)
+	assert.Equal(t, corev1.HostPathDirectory, *sysfsMemoryOnlineVolume.HostPath.Type)
+
+	var driverContainer *corev1.Container
+	for i := range ds.Spec.Template.Spec.Containers {
+		if ds.Spec.Template.Spec.Containers[i].Name == "nvidia-driver-ctr" {
+			driverContainer = &ds.Spec.Template.Spec.Containers[i]
+			break
+		}
+	}
+	require.NotNil(t, driverContainer)
+
+	var sysfsMemoryOnlineMount *corev1.VolumeMount
+	for i := range driverContainer.VolumeMounts {
+		if driverContainer.VolumeMounts[i].Name == "sysfs-memory-online" {
+			sysfsMemoryOnlineMount = &driverContainer.VolumeMounts[i]
+			break
+		}
+	}
+	require.NotNil(t, sysfsMemoryOnlineMount)
+	assert.Equal(t, "/sys/devices/system", sysfsMemoryOnlineMount.MountPath)
+	assert.Empty(t, sysfsMemoryOnlineMount.SubPath)
+}
+
 func TestDriverHostNetwork(t *testing.T) {
 	const (
 		testName = "driver-hostnetwork"
