@@ -70,7 +70,8 @@ type ClusterPolicyReconciler struct {
 // +kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use,resourceNames=privileged
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=*
 // +kubebuilder:rbac:groups="",resources=namespaces;serviceaccounts;pods;pods/eviction;services;services/finalizers;endpoints,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims;events;configmaps;secrets;nodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=controllerrevisions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules,verbs=get;list;watch;create;update;patch;delete
@@ -281,9 +282,9 @@ func addWatchNewGPUNode(r *ClusterPolicyReconciler, c controller.Controller, mgr
 			oldLabels := e.ObjectOld.GetLabels()
 			nodeName := e.ObjectNew.GetName()
 
-			gpuCommonLabelMissing := hasGPULabels(newLabels) && !hasCommonGPULabel(newLabels)
+			// Trigger when NodeLabelingReconciler sets gpu.present=true on a new GPU node.
+			gpuCommonLabelAdded := !hasCommonGPULabel(oldLabels) && hasCommonGPULabel(newLabels)
 			gpuCommonLabelOutdated := !hasGPULabels(newLabels) && hasCommonGPULabel(newLabels)
-			migManagerLabelMissing := hasMIGCapableGPU(newLabels) && !hasMIGManagerLabel(newLabels)
 			commonOperandsLabelChanged := hasOperandsDisabled(oldLabels) != hasOperandsDisabled(newLabels)
 
 			oldGPUWorkloadConfig, _ := getWorkloadConfig(oldLabels, true)
@@ -294,9 +295,8 @@ func addWatchNewGPUNode(r *ClusterPolicyReconciler, c controller.Controller, mgr
 			newOSTreeLabel := newLabels[nfdOSTreeVersionLabelKey]
 			osTreeLabelChanged := oldOSTreeLabel != newOSTreeLabel
 
-			needsUpdate := gpuCommonLabelMissing ||
+			needsUpdate := gpuCommonLabelAdded ||
 				gpuCommonLabelOutdated ||
-				migManagerLabelMissing ||
 				commonOperandsLabelChanged ||
 				gpuWorkloadConfigLabelChanged ||
 				osTreeLabelChanged
@@ -304,9 +304,8 @@ func addWatchNewGPUNode(r *ClusterPolicyReconciler, c controller.Controller, mgr
 			if needsUpdate {
 				r.Log.Info("Node needs an update",
 					"name", nodeName,
-					"gpuCommonLabelMissing", gpuCommonLabelMissing,
+					"gpuCommonLabelAdded", gpuCommonLabelAdded,
 					"gpuCommonLabelOutdated", gpuCommonLabelOutdated,
-					"migManagerLabelMissing", migManagerLabelMissing,
 					"commonOperandsLabelChanged", commonOperandsLabelChanged,
 					"gpuWorkloadConfigLabelChanged", gpuWorkloadConfigLabelChanged,
 					"osTreeLabelChanged", osTreeLabelChanged,
